@@ -1,0 +1,81 @@
+# README: Resolving Pandas SQL Connection Warning
+
+## The Warning Message
+```
+C:\Users\...\Temp\ipykernel_52248\1430840462.py:6: UserWarning: pandas only supports SQLAlchemy connectable (engine/connection) or database string URI or sqlite3 DBAPI2 connection. Other DBAPI2 objects are not tested. Please consider using SQLAlchemy.
+  df = pd.read_sql("""SELECT ...""", conn)
+```
+
+## Why This Happens
+
+Pandas displays this warning when:
+1. You're using a **raw DBAPI2 connection** (like pyodbc) with `pd.read_sql()`
+2. Pandas officially recommends using SQLAlchemy for database connections
+3. The warning indicates your connection type isn't fully tested/supported
+
+## Solutions
+
+### 1. Recommended Solution: Use SQLAlchemy
+```python
+from sqlalchemy import create_engine
+
+# Create SQLAlchemy engine
+connection_string = (
+    "mssql+pyodbc://username:password@server/database?"
+    "driver=ODBC+Driver+17+for+SQL+Server"
+)
+engine = create_engine(connection_string)
+
+# Warning-free query execution
+df = pd.read_sql("SELECT * FROM table", engine)
+```
+
+### 2. Temporary Warning Suppression
+```python
+import warnings
+
+with warnings.catch_warnings():
+    warnings.simplefilter("ignore", category=UserWarning)
+    df = pd.read_sql("SELECT * FROM table", pyodbc_conn)
+```
+
+### 3. Permanent Warning Filter (Not Recommended)
+```python
+import warnings
+warnings.filterwarnings('ignore', 
+    message='pandas only supports SQLAlchemy connectable.*')
+```
+
+### 4. Wrapper Function (Cleanest Alternative)
+```python
+def safe_read_sql(query, connection):
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", category=UserWarning)
+        return pd.read_sql(query, connection)
+```
+
+## Key Considerations
+
+1. **SQLAlchemy Benefits**:
+   - Connection pooling
+   - Better parameter handling
+   - More database compatibility
+   - Future-proof solution
+
+2. **Warning Suppression Risks**:
+   - May hide other important warnings
+   - Doesn't address the underlying compatibility note
+
+3. **Performance Impact**:
+   - SQLAlchemy adds minimal overhead
+   - For simple queries, difference is negligible
+
+## Best Practice
+
+For production code, **Solution #1 (SQLAlchemy)** is strongly recommended as it:
+- Removes the warning permanently
+- Provides additional functionality
+- Is the officially supported method
+- Makes your code more maintainable
+
+For quick scripts or analysis, **Solution #4** (wrapper function) provides a clean way to maintain your existing connection pattern while silencing the warning.
